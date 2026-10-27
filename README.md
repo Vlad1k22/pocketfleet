@@ -10,7 +10,7 @@ Register your own lab phone, report a minimal inventory, receive a versioned bas
 
 **Educational project, not an MDM agent, endpoint protection product or device-attestation system. Not affiliated with Kaspersky.** No device locking, wiping, hidden monitoring or remote screen access.
 
-[Русская инструкция и сценарий демонстрации](docs/QUICKSTART_RU.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Test matrix](docs/TESTING.md)
+[Русская инструкция и сценарий демонстрации](docs/QUICKSTART_RU.md) · [UEM/security lab и подготовка к интервью](docs/SECURITY_LAB_RU.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Test matrix](docs/TESTING.md)
 
 ## Run
 
@@ -58,7 +58,23 @@ The **device token is stored using iOS Keychain / Android Keystore-backed Secure
 - At-least-once delivery, immutable terminal results, idempotent acknowledgements and a persisted result outbox.
 - Cached non-secret data for offline viewing. Foreground-only polling pauses through `AppState`; it is not a background service.
 - Shared Zod contracts at both sides of the network boundary.
-- A CLI for administration, integration/unit tests and GitHub Actions checks.
+- Client checks for response ownership, duplicate command IDs, policy rollback and inconsistent acknowledgements.
+- Explicit bearer authentication, browser write-Origin checks and non-cacheable JSON API responses.
+- A CLI for administration, **88 unit/integration tests** and **two browser security scenarios across desktop/mobile Chromium (four runs)** in GitHub Actions.
+
+## Security lab
+
+The tests exercise device-to-admin escalation, cross-device command acknowledgement (BOLA), lost ACK recovery across SQLite/cache reopening, policy rollback, stored HTML/script reminders and session revocation. They check observable state changes, not just HTTP status codes. The browser scenarios use the actual Expo web UI and local API without mocked responses.
+
+```sh
+npm run test:security
+npx playwright install chromium
+npm run test:browser:security
+```
+
+The browser suite starts a fresh loopback-only API on **4349**, with disposable test data and a deliberately public test-only key. It starts/reuses the local web preview on **8087**. Leave both ports free, or keep your existing PocketFleet preview on 8087. Never reuse the test key for a real server. Results and screenshots go to git-ignored `test-results/`; CI retains them as an artifact for seven days. Network traces are disabled to avoid recording credentials. Mobile Chromium emulation is **not** native Android/iOS or Safari coverage.
+
+See the [Russian security walkthrough](docs/SECURITY_LAB_RU.md) for threat assumptions, exact assertions, limitations and interview questions. This is a focused regression suite, not a complete penetration test or security certification.
 
 ## Platform notes
 

@@ -66,6 +66,12 @@ export class SyncEngine {
         const pending = cache.outbox[0];
         try {
           const command = await api.result(session, pending.commandId, pending.result, signal);
+          if (
+            command.id !== pending.commandId ||
+            command.deviceId !== session.deviceId ||
+            command.status !== pending.result.status
+          )
+            throw new ApiError(502, 'Inconsistent command acknowledgement.');
           if (cache.snapshot)
             cache = {
               ...cache,
@@ -89,6 +95,25 @@ export class SyncEngine {
     assertActive();
     const collected = await inventory();
     const snapshot = await api.checkIn(session, collected, signal);
+    if (
+      snapshot.device.id !== session.deviceId ||
+      snapshot.commands.some((command) => command.deviceId !== session.deviceId)
+    )
+      throw new ApiError(502, 'Snapshot device identity does not match the session.');
+    if (new Set(snapshot.commands.map((command) => command.id)).size !== snapshot.commands.length)
+      throw new ApiError(502, 'Duplicate command identity in snapshot.');
+    const previous = cache.snapshot?.policy;
+    if (previous) {
+      const incoming = snapshot.policy;
+      const unchanged = (Object.keys(previous) as (keyof typeof previous)[]).every(
+        (key) => incoming[key] === previous[key],
+      );
+      if (
+        incoming.revision < previous.revision ||
+        (incoming.revision === previous.revision && !unchanged)
+      )
+        throw new ApiError(502, 'Policy revision must increase when its content changes.');
+    }
     cache = { ...cache, snapshot };
     await persist();
     for (const command of snapshot.commands) {

@@ -25,6 +25,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "22",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
@@ -44,6 +45,8 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:security": "vitest run tests/security-api.test.ts tests/security-protocol.test.ts tests/uem-recovery.test.ts",
+    "test:browser:security": "playwright test",
     "check": "npm run typecheck && npm run lint && npm test"
   },
   "engines": {

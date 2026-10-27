@@ -15,6 +15,16 @@ Device nickname, model, operating-system version, app version, physical/simulato
 - No credential is placed in an `EXPO_PUBLIC_` environment variable or URL.
 - Request logging is disabled; errors do not echo authorization headers or server stack traces.
 
+## Web and protocol boundaries
+
+Device/admin authentication uses an explicit Authorization bearer header, never cookies or URL credentials. State-changing requests with a present Origin must exactly match the loopback preview allowlist (localhost/127.0.0.1, ports 8081/8087/19006); opaque `null` and suffix lookalikes are rejected before route execution. CORS is not the authorization boundary. Origin-less native/CLI requests still require the relevant credential on protected routes. Enrollment instead requires the short-lived code. A non-browser client can forge/omit Origin, so Origin validation never replaces authentication. Introducing cookie authentication would require a separate CSRF design.
+
+API responses include `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, a restrictive CSP and `Referrer-Policy: no-referrer`, including handled errors. **The API CSP does not apply to the separately served Expo web document.** In the UI, remote reminders are rendered through React Native Text, never interpreted as HTML. The browser regression tests verify literal text, absence of injected DOM elements/script execution and absence of the marker network request.
+
+The synchronizer rejects another device's snapshot/commands, duplicate command IDs, policy revision rollback and changed policy content without a new revision. It checks acknowledgement ID, owner and terminal status before removing an outbox item. These are protocol consistency checks, not a signature or protection against a fully compromised server. A fresh enrollment has no policy revision history; restoring/rolling back the entire local cache is outside this guarantee.
+
+See [the security lab](docs/SECURITY_LAB_RU.md) for reproducible test commands and remaining limits. The checked-in browser test key is intentionally public, used only with a disposable database on 127.0.0.1:4349 and never imported into the mobile application. Tests must not target somebody else's service.
+
 ## Limitations
 
 Local HTTP exposes traffic to an observer on the same network; it is accepted only for private-development origins by the client URL validator. Outside the trusted lab, HTTPS is required, and a real deployment also needs identity management, audit logging, credential rotation, monitoring and a platform-specific review. Binding to all interfaces requires an explicit environment setting; the default is loopback.

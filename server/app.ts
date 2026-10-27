@@ -16,8 +16,28 @@ export async function buildApp(store: Store, adminToken: string) {
   if (adminToken.length < 32)
     throw new Error('Administrator token must contain at least 32 characters.');
   const app = Fastify({ logger: false, bodyLimit: 16_384 });
+  const trustedBrowserOrigin = /^http:\/\/(localhost|127\.0\.0\.1):(8081|8087|19006)$/;
+  app.addHook('onRequest', async (request) => {
+    // CORS controls response access, not whether a mutation reaches the handler.
+    // Native/CLI clients omit Origin and still need explicit bearer authentication.
+    const origin = request.headers.origin;
+    if (
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
+      origin !== undefined &&
+      !trustedBrowserOrigin.test(origin)
+    )
+      throw new DomainError(403, 'Browser origin is not allowed.');
+  });
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('Cache-Control', 'no-store');
+    reply.header('X-Content-Type-Options', 'nosniff');
+    // This policy protects API responses, not the separately hosted web document.
+    reply.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    reply.header('Referrer-Policy', 'no-referrer');
+    return payload;
+  });
   await app.register(cors, {
-    origin: /^http:\/\/(localhost|127\.0\.0\.1):(8081|8087|19006)$/,
+    origin: trustedBrowserOrigin,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
   });
   await app.register(rateLimit, { global: true, max: 120, timeWindow: '1 minute' });

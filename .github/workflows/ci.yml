@@ -16,6 +16,14 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm audit --workspace @pocketfleet/api --omit=dev --audit-level=high
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser:security
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-security-results
+          path: test-results/
+          retention-days: 7
       - run: npx expo export --platform android --output-dir /tmp/pocketfleet-android
       - run: npx expo export --platform ios --output-dir /tmp/pocketfleet-ios
       - run: npx expo export --platform web --output-dir /tmp/pocketfleet-web

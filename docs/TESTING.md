@@ -2,7 +2,22 @@
 
 Automated tests cover pure policy evaluation, URL validation, enrollment, authentication, cross-device authorization, command transitions, expiry, result retries, cancellation and outbox durability.
 
-Run `npm run check`. CI also exports Android, iOS and web JavaScript bundles. Exporting does **not** compile/sign an APK/IPA or exercise a native runtime.
+Run `npm run check`. For the real browser suite, install Chromium with `npx playwright install chromium`, then run `npm run test:browser:security`. CI runs both suites and also exports Android, iOS and web JavaScript bundles. Exporting does **not** compile/sign an APK/IPA or exercise a native runtime.
+
+## Security regression coverage
+
+| Suite                                | Cases                    | What is actually exercised                                                                                                                                                                                                                |
+| ------------------------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/security-api.test.ts`         | 19                       | Fastify HTTP injection + real SQLite: device/admin separation, BOLA, strict inventory, Origin guard with no mutation, no ambient cookie/query auth, response headers, size limit, SQL-shaped input, sanitized errors and token revocation |
+| `tests/security-protocol.test.ts`    | 10                       | Client core with controlled responses: wrong owner, duplicate IDs, policy rollback, changed content at the same revision, legitimate new revision and inconsistent ACK retention                                                          |
+| `tests/uem-recovery.test.ts`         | 1                        | Real API handlers + disk SQLite + serialized cache: response lost after commit, fresh store/engine instances and idempotent retry                                                                                                         |
+| `tests/e2e/browser-security.spec.ts` | 2 scenarios × 2 projects | Actual Expo UI + disposable API in desktop/mobile Chromium: stored HTML/script is inert; web token persistence and live revocation/reload                                                                                                 |
+
+These add 30 unit/integration cases to the existing 58. The four browser runs are separate from the 88 Vitest cases. They are not four different mobile platforms.
+
+The browser suite uses port 4349 and a fresh temporary SQLite database, with a public test-only credential. Existing real lab data on port 4347 is not used. It needs no Expo account or employer access. JSON results and screenshots live in ignored `test-results/`; CI uploads that directory as `browser-security-results` for seven days. Traces/videos are off because network recordings can contain tokens. Screenshot assertions expose only synthetic device nicknames and harmless marker strings, never credentials.
+
+The recovery test deliberately loses an ACK response after the real handler commits. It is not a mocked success response, but it also is not a native storage/power-loss test. For the precise threat model and interview walkthrough, read [SECURITY_LAB_RU.md](SECURITY_LAB_RU.md).
 
 ## Physical-device acceptance (not yet verified)
 
@@ -31,7 +46,8 @@ Use `npx expo install --check` and `npx expo-doctor`. A development/preview clou
 ## Local run, 2026-10-27
 
 - TypeScript strict check and ESLint completed successfully.
-- 58 automated assertions passed across contracts, management API, fetch adapter and sync engine.
+- 88 automated test cases passed across contracts, management API, fetch adapter, sync engine, protocol security and disk recovery.
+- Four Playwright browser security runs passed: both stored-XSS and token/revocation scenarios in desktop and emulated mobile Chromium. Screenshots were visually reviewed. No native-device or Safari claim follows from this.
 - Expo Doctor: 21/21 checks; SDK package compatibility check passed.
 - JavaScript bundle exports completed for Android, iOS and web. No signed APK/IPA was built.
 - Browser smoke: actual local enrollment, app-scoped inventory, queued-to-acknowledged reminder, server-side revocation and local disconnect passed. The browser was correctly reported as `web`.
