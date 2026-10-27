@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "PocketFleet",
+    "slug": "pocketfleet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/pocketfleet-icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "pocketfleet",
+    "plugins": ["expo-router", "expo-secure-store", "expo-font", "expo-splash-screen"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.vlad1k22.pocketfleet"
+    },
+    "android": {
+      "package": "dev.vlad1k22.pocketfleet",
+      "adaptiveIcon": {
+        "backgroundColor": "#087E71",
+        "foregroundImage": "./assets/pocketfleet-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/pocketfleet-icon.png",
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}
