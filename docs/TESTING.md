@@ -36,7 +36,7 @@ Use `npx expo install --check` and `npx expo-doctor`. A development/preview clou
 - JavaScript bundle exports completed for Android, iOS and web. No signed APK/IPA was built.
 - Browser smoke: actual local enrollment, app-scoped inventory, queued-to-acknowledged reminder, server-side revocation and local disconnect passed. The browser was correctly reported as `web`.
 - Demo command flow and cached offline view were exercised in the UI.
-- Browser layout at desktop and 390 px viewport width was visually reviewed; this is not a native-device test.
+- Browser layout at desktop, 390 px and 320 px viewport widths was visually reviewed; this is not a native-device test.
 - API workspace dependency audit reported zero vulnerabilities. Full SDK dependency findings are separately disclosed in `SECURITY.md`.
 
 Two issues found by the browser smoke were fixed and regression-tested: empty JSON Content-Type headers on bodyless requests, and missing DELETE in the browser preview's CORS preflight methods.
