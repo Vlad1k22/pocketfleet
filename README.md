@@ -1,70 +1,158 @@
 # PocketFleet
 
-[![Quality checks](https://github.com/Vlad1k22/pocketfleet/actions/workflows/ci.yml/badge.svg)](https://github.com/Vlad1k22/pocketfleet/actions/workflows/ci.yml)
+[![Проверки качества](https://github.com/Vlad1k22/pocketfleet/actions/workflows/ci.yml/badge.svg)](https://github.com/Vlad1k22/pocketfleet/actions/workflows/ci.yml)
 
-<img src="assets/mark.svg" width="72" height="72" alt="PocketFleet app icon" />
+<img src="assets/mark.svg" width="72" height="72" alt="Иконка приложения PocketFleet" />
 
-A consent-based **React Native / TypeScript companion for iOS and Android**, with a local **Node.js / Fastify / SQLite** management API.
+Учебное приложение для **Android и iOS на React Native и TypeScript** с локальным API управления на **Node.js, Fastify и SQLite**. Проект посвящён отдельным сценариям UEM — унифицированного управления конечными устройствами.
 
-Register your own lab phone, report a minimal inventory, receive a versioned baseline and process two safe app-level commands. An offline result outbox separates **server acceptance**, **delivery** and **confirmed completion**.
+Пользователь регистрирует свой телефон по одноразовому коду, соглашается на передачу ограниченной инвентаризации и получает версионируемую политику. Приложение оценивает соответствие требованиям и выполняет две безопасные команды: обновить инвентаризацию и показать напоминание. Очередь исходящих результатов помогает восстановить синхронизацию после сетевого сбоя.
 
-**Educational project, not an MDM agent, endpoint protection product or device-attestation system. Not affiliated with Kaspersky.** No device locking, wiping, hidden monitoring or remote screen access.
+Главная идея: **принятие команды сервером, доставка устройству и подтверждённое выполнение — разные события**.
 
-[Русская инструкция и сценарий демонстрации](docs/QUICKSTART_RU.md) · [UEM/security lab и подготовка к интервью](docs/SECURITY_LAB_RU.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](SECURITY.md) · [Test matrix](docs/TESTING.md)
+[Подробная инструкция](docs/QUICKSTART_RU.md) · [Сценарии UEM и безопасности](docs/SECURITY_LAB_RU.md) · [Архитектура](docs/ARCHITECTURE.md) · [Модель безопасности](SECURITY.md) · [Матрица проверок](docs/TESTING.md)
 
-## Run
+## Возможности
 
-Node.js **22.19+** is required (`node:sqlite`).
+- Регистрация по одноразовому коду с ограниченным сроком действия и частотой запросов.
+- Отдельная сессия устройства с bearer-токеном и возможностью отзыва доступа.
+- Чтение модели устройства, версий ОС и приложения через нативные API.
+- Оценка политики с результатами `pass`, `fail` и `unknown`: неизвестные данные не считаются подтверждением соответствия.
+- Команды `refresh_inventory` и `show_message`, ограниченная очередь и срок доставки.
+- Повторная доставка и идемпотентные подтверждения: повтор ACK сохраняет первоначальный результат.
+- Сохранение ожидающих отправки результатов в outbox и просмотр кэша без сети.
+- Опрос сервера только при активном приложении; отмена запросов при уходе в фон через `AppState`.
+- Проверка владельца ответа, уникальности ID команд и последовательности версий политики на клиенте.
+- CLI администратора, общие Zod-контракты и автоматические проверки в GitHub Actions.
+
+Приложение собирает только ограниченную инвентаризацию: без контактов, геолокации, IMEI, рекламного идентификатора и списка установленных приложений.
+
+## Стек
+
+| Часть проекта          | Технологии                                         |
+| ---------------------- | -------------------------------------------------- |
+| Мобильное приложение   | React Native, Expo SDK 57, Expo Router, TypeScript |
+| Хранение на устройстве | SecureStore для токена, AsyncStorage для кэша      |
+| API управления         | Node.js 22.19+, Fastify, SQLite                    |
+| Контракты данных       | Zod                                                |
+| Тесты                  | Vitest, Playwright                                 |
+| Проверки качества      | TypeScript strict, ESLint, GitHub Actions          |
+
+## Быстрый запуск
+
+Нужен **Node.js 22.19 или новее**: сервер использует встроенный модуль `node:sqlite`.
+
+Установи зависимости и запусти проверки:
 
 ```sh
 npm ci
 npm run check
+```
+
+### 1. Открыть приложение
+
+```sh
 npm start
 ```
 
-Open the app in **Expo Go compatible with SDK 57** on a physical iOS/Android device. The app opens with explicitly labelled synthetic demo data; no server or account is needed for that mode. In a second terminal, start the lab API:
+Для телефона используй **Expo Go, совместимый с SDK 57**, либо development-сборку. Подробности совместимости — ниже. Для браузерного предпросмотра:
+
+```sh
+npm run web
+```
+
+Веб-версия доступна на `http://localhost:8087`. При первом запуске приложение показывает явно помеченные вымышленные данные в режиме **DEMO**. Для знакомства с интерфейсом сервер и учётная запись не нужны.
+
+### 2. Запустить локальный API
+
+В отдельном терминале:
 
 ```sh
 npm run server
-npm run admin -- code
 ```
 
-The default API binds to `127.0.0.1:4347`. For a physical phone on the **same trusted Wi-Fi**, deliberately enable LAN binding:
+По умолчанию API доступен только на компьютере: `http://127.0.0.1:4347`. Для подключения физического телефона в той же доверенной Wi-Fi-сети запусти сервер с доступом из локальной сети. Пример для PowerShell вместо обычного запуска выше:
 
 ```powershell
 $env:POCKETFLEET_HOST="0.0.0.0"
 npm run server
 ```
 
-The server prints eligible LAN addresses. In Connection, enter that address, the 10-minute single-use code and a nickname, then explicitly consent to sharing the inventory. Do not forward this port to the internet. Private-network HTTP is a development concession; use HTTPS outside the lab.
+Сервер напечатает доступные LAN-адреса. На телефоне используй адрес компьютера, например `http://192.168.1.10:4347`: `127.0.0.1` на телефоне указывает на сам телефон. HTTP в частной сети предусмотрен для разработки; вне доверенного стенда нужен HTTPS. Не открывай порт сервера в интернет.
+
+### 3. Зарегистрировать устройство
+
+В ещё одном терминале выпусти код:
+
+```sh
+npm run admin -- code
+```
+
+В приложении открой **Connection**, введи адрес сервера, имя устройства и код. Подтверди согласие на передачу инвентаризации и нажми **Enroll device**. Код действует **10 минут** и используется только один раз; для второго устройства нужен новый код.
+
+### 4. Отправить команду
+
+Выведи список устройств:
 
 ```sh
 npm run admin -- devices
+```
+
+Скопируй ID нужного устройства и используй его вместо `DEVICE_ID`:
+
+```sh
 npm run admin -- inventory DEVICE_ID
 npm run admin -- message DEVICE_ID "Hello from the lab"
+```
+
+В приложении нажми **Sync now** и посмотри журнал **Activity**: команда проходит состояния `queued` → `delivered` → `acknowledged`. Последнее означает, что сервер подтвердил результат действия приложения.
+
+Проверить журнал на сервере:
+
+```sh
 npm run admin -- commands DEVICE_ID
+```
+
+Дополнительно можно изменить минимальную версию Android или отозвать доступ устройства:
+
+```sh
 npm run admin -- policy android 16
 npm run admin -- revoke DEVICE_ID
 ```
 
-The **device token is stored using iOS Keychain / Android Keystore-backed SecureStore**. The independent admin credential remains in `.local/admin.key`, which is git-ignored. It is never embedded in the mobile bundle. The browser preview keeps its token in memory only.
+После отзыва токена следующая синхронизация будет отклонена. Для продолжения отключи сессию в приложении и зарегистрируй устройство с новым кодом.
 
-## What is implemented
+## Безопасность и UEM-сценарии
 
-- One-time enrollment, expiration, rate limiting, independent per-device bearer sessions and revocation.
-- Native model/OS information; no contacts, location, IMEI, advertising ID or installed-app enumeration.
-- Read-only, revisioned policy assessment with distinct `pass`, `fail` and `unknown` results.
-- Safe commands: `refresh_inventory` and `show_message`, with a bounded queue and delivery deadline.
-- At-least-once delivery, immutable terminal results, idempotent acknowledgements and a persisted result outbox.
-- Cached non-secret data for offline viewing. Foreground-only polling pauses through `AppState`; it is not a background service.
-- Shared Zod contracts at both sides of the network boundary.
-- Client checks for response ownership, duplicate command IDs, policy rollback and inconsistent acknowledgements.
-- Explicit bearer authentication, browser write-Origin checks and non-cacheable JSON API responses.
-- A CLI for administration, **88 unit/integration tests** and **two browser security scenarios across desktop/mobile Chromium (four runs)** in GitHub Actions.
+**Разделение полномочий.** Токен устройства позволяет работать только с его сессией. Владелец команды определяется по токену, а не по ID из тела запроса. Администратор использует отдельный ключ из `.local/admin.key`; файл исключён из Git и не попадает в мобильный пакет.
 
-## Security lab
+**Хранение токена.** На iOS используется Keychain, на Android — SecureStore с защитой через Keystore. Браузерный предпросмотр держит токен только в памяти: после перезагрузки страницы регистрация не восстанавливается. SQLite хранит хеши токенов и одноразовых кодов.
 
-The tests exercise device-to-admin escalation, cross-device command acknowledgement (BOLA), lost ACK recovery across SQLite/cache reopening, policy rollback, stored HTML/script reminders and session revocation. They check observable state changes, not just HTTP status codes. The browser scenarios use the actual Expo web UI and local API without mocked responses.
+**Недоверенные данные.** Напоминания отображаются как текст, без интерпретации HTML. На защищённых маршрутах требуется явный заголовок Authorization; cookie и query-параметры не заменяют аутентификацию. Записывающие браузерные запросы проходят проверку точного Origin, ответы API запрещают кэширование. CORS не используется как замена проверки прав.
+
+**Сетевые сбои.** Если сервер принял подтверждение, но ответ потерялся, клиент повторяет отправку сохранённого результата. Тест восстановления заново открывает SQLite и загружает кэш с диска. Доставка имеет семантику **at-least-once**; сбой между действием и сохранением результата всё ещё может привести к повтору действия, поэтому команды ограничены безопасными повторяемыми операциями.
+
+Подробный разбор угроз, проверок и ограничений — в [сценариях UEM и безопасности](docs/SECURITY_LAB_RU.md).
+
+## Тестирование
+
+В проекте **88 модульных и интеграционных тестов**, а также **два браузерных сценария в desktop и mobile Chromium — четыре прогона**.
+
+| Сценарий                   | Что проверяется                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Изоляция устройств и ролей | Устройство A не подтверждает команду B и не получает права администратора                             |
+| Согласованность протокола  | Клиент отклоняет чужие ответы, дубликаты ID и откат политики                                          |
+| Потерянный ACK             | Результат повторно отправляется после загрузки БД и кэша, первоначальное подтверждение сохраняется    |
+| XSS в напоминаниях         | Реальный браузер показывает HTML/JavaScript буквальным текстом, без внедрения узлов и выполнения кода |
+| Сессия браузера            | Токена нет в localStorage/sessionStorage; отзыв доступа блокирует синхронизацию                       |
+
+Все проверки TypeScript, ESLint и Vitest:
+
+```sh
+npm run check
+```
+
+Отдельный набор из 30 тестов безопасности и восстановления, затем браузерные проверки:
 
 ```sh
 npm run test:security
@@ -72,38 +160,42 @@ npx playwright install chromium
 npm run test:browser:security
 ```
 
-The browser suite starts a fresh loopback-only API on **4349**, with disposable test data and a deliberately public test-only key. It starts/reuses the local web preview on **8087**. Leave both ports free, or keep your existing PocketFleet preview on 8087. Never reuse the test key for a real server. Results and screenshots go to git-ignored `test-results/`; CI retains them as an artifact for seven days. Network traces are disabled to avoid recording credentials. Mobile Chromium emulation is **not** native Android/iOS or Safari coverage.
+Playwright запускает отдельный API на `127.0.0.1:4349` с новой временной базой и намеренно публичным тестовым ключом, а также запускает или использует предпросмотр на порту **8087**. Освободи эти порты либо оставь свой PocketFleet preview на 8087. Тестовый ключ предназначен только для одноразового стенда.
 
-See the [Russian security walkthrough](docs/SECURITY_LAB_RU.md) for threat assumptions, exact assertions, limitations and interview questions. This is a focused regression suite, not a complete penetration test or security certification.
+Результаты и скриншоты сохраняются в исключённый из Git каталог `test-results/`. В GitHub Actions они доступны как артефакт `browser-security-results` в течение семи дней. Запись сетевых трасс отключена, чтобы не сохранять токены. Браузерные тесты работают с настоящим интерфейсом и API без подмены ответов.
 
-## Platform notes
+[GitHub Actions](https://github.com/Vlad1k22/pocketfleet/actions/workflows/ci.yml) запускает проверки и экспорт JavaScript для Android, iOS и web. [Матрица проверок](docs/TESTING.md) отдельно фиксирует выполненные и ещё не пройденные проверки.
 
-The same source targets Android and iOS. **A JavaScript bundle export is not a signed native build, and browser tests are not physical-device verification.** The physical-device checklist in `docs/TESTING.md` deliberately stays unchecked until somebody runs it.
+## Совместимость и границы проекта
 
-Expo Go availability changes during SDK transitions. This project pins SDK 57. If your installed Expo Go requires another SDK, use a compatible Go build or a development build rather than mixing package versions. `npx expo install --check` checks compatibility.
+Проект использует Expo SDK 57. Если установленный Expo Go требует другой SDK, нужна совместимая версия Go или development-сборка. Проверка совместимости пакетов:
 
 ```sh
-npm run web
+npx expo install --check
 npx expo-doctor
-npx eas-cli@latest build --platform android --profile preview
-npx expo install expo-dev-client
-npx eas-cli@latest build --platform ios --profile development
 ```
 
-Cloud builds require an Expo account; iOS signing/device installation may require an Apple Developer account and device registration. **No EAS build, App Store publication or device signing is implied by this repository.** Native directories are generated by Expo rather than checked in.
+Подключение телефона подробно описано в [инструкции](docs/QUICKSTART_RU.md). Для опциональных облачных сборок нужны собственная учётная запись Expo и подходящая конфигурация подписи; для iOS могут потребоваться Apple Developer и регистрация устройства. Development-сборка также требует установки `expo-dev-client` через `npx expo install expo-dev-client` и повторной проверки совместимости. Нативные каталоги генерирует Expo. Самостоятельные нативные сборки сохраняют стандартные ограничения транспорта ОС и должны использовать HTTPS API.
 
-`expo-dev-client` is an explicit prerequisite for the optional development-client build above; it is not needed for the included Expo Go workflow. Installing it changes your local dependency/config files and should be followed by the normal compatibility checks. Standalone native builds keep OS transport defaults and should use an HTTPS API rather than the lab's HTTP example.
+**Экспорт JavaScript и мобильный размер окна Chromium не подтверждают работу на физических Android/iPhone.** Проверки на телефонах, SecureStore в нативном окружении и подписанные APK/IPA пока не выполнены; соответствующие пункты в матрице оставлены открытыми.
 
-## Development provenance
+PocketFleet управляет только собственной сессией приложения. Здесь нет MDM-регистрации, применения системных ограничений, блокировки или очистки устройства, скрытого наблюдения и удалённого доступа к экрану. Инвентаризация заявлена клиентом и не является аттестацией устройства. Проект учебный и не связан с «Лабораторией Касперского».
 
-Created as an AI-assisted personal learning project. The code, tests and trade-offs are intentionally small enough to study and explain. This repository does not represent commercial mobile-development experience. See the Russian walkthrough for a practical path from running the project to discussing it in an interview.
+Известные ограничения зависимостей Expo и модели защиты раскрыты в [SECURITY.md](SECURITY.md). Автотесты проверяют конкретные сценарии и не являются полным аудитом безопасности.
 
-## References
+## О разработке
 
-- [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/)
-- [SecureStore platform behavior](https://docs.expo.dev/versions/v57.0.0/sdk/securestore/)
-- [Expo Device](https://docs.expo.dev/versions/v57.0.0/sdk/device/)
-- [React Native AppState](https://reactnative.dev/docs/appstate)
-- [Node.js SQLite](https://nodejs.org/api/sqlite.html)
+Личный учебный проект, созданный с помощью AI. Код, тесты и принятые решения доступны для самостоятельного изучения и воспроизведения. Репозиторий не представляет коммерческий опыт мобильной разработки.
 
-MIT licensed. The Expo starter's attribution is retained in `LICENSE`.
+## Документация
+
+- [Запуск на Android/iPhone и сценарий демонстрации](docs/QUICKSTART_RU.md) — на русском.
+- [UEM, безопасность и разбор тестов](docs/SECURITY_LAB_RU.md) — на русском.
+- [Архитектура и принятые решения](docs/ARCHITECTURE.md) — на английском.
+- [Модель безопасности и ограничения зависимостей](SECURITY.md) — на английском.
+- [Матрица автоматических и ручных проверок](docs/TESTING.md) — на английском.
+- [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/), [SecureStore](https://docs.expo.dev/versions/v57.0.0/sdk/securestore/), [Expo Device](https://docs.expo.dev/versions/v57.0.0/sdk/device/), [React Native AppState](https://reactnative.dev/docs/appstate), [Node.js SQLite](https://nodejs.org/api/sqlite.html) — официальная документация.
+
+## Лицензия
+
+[MIT](LICENSE). Указание авторства исходного шаблона Expo сохранено в лицензии.
